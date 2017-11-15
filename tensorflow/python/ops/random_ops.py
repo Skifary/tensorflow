@@ -206,7 +206,8 @@ def random_uniform(shape,
     maxval: A 0-D Tensor or Python value of type `dtype`. The upper bound on
       the range of random values to generate.  Defaults to 1 if `dtype` is
       floating point.
-    dtype: The type of the output: `float32`, `float64`, `int32`, or `int64`.
+    dtype: The type of the output: 'float16`, `float32`, `float64`, `int32`,
+      or `int64`.
     seed: A Python integer. Used to create a random seed for the distribution.
       See @{tf.set_random_seed}
       for behavior.
@@ -219,6 +220,9 @@ def random_uniform(shape,
     ValueError: If `dtype` is integral and `maxval` is not specified.
   """
   dtype = dtypes.as_dtype(dtype)
+  if dtype not in (dtypes.float16, dtypes.float32, dtypes.float64, dtypes.int32,
+                   dtypes.int64):
+    raise ValueError("Invalid dtype %r" % dtype)
   if maxval is None:
     if dtype.is_integer:
       raise ValueError("Must specify maxval for integer dtype %r" % dtype)
@@ -300,7 +304,8 @@ def random_crop(value, size, seed=None, name=None):
     shape = array_ops.shape(value)
     check = control_flow_ops.Assert(
         math_ops.reduce_all(shape >= size),
-        ["Need value.shape >= size, got ", shape, size])
+        ["Need value.shape >= size, got ", shape, size],
+        summarize=1000)
     shape = control_flow_ops.with_dependencies([check], shape)
     limit = shape - size + 1
     offset = random_uniform(
@@ -324,7 +329,7 @@ def multinomial(logits, num_samples, seed=None, name=None):
 
   Args:
     logits: 2-D Tensor with shape `[batch_size, num_classes]`.  Each slice
-      `[i, :]` represents the unnormalized log probabilities for all classes.
+      `[i, :]` represents the unnormalized log-probabilities for all classes.
     num_samples: 0-D.  Number of independent samples to draw for each row slice.
     seed: A Python integer. Used to create a random seed for the distribution.
       See
@@ -433,8 +438,8 @@ def random_poisson(lam, shape, dtype=dtypes.float32, seed=None, name=None):
       distribution(s) to sample.
     shape: A 1-D integer Tensor or Python array. The shape of the output samples
       to be drawn per "rate"-parameterized distribution.
-    dtype: The type of `lam` and the output: `float16`, `float32`, or
-      `float64`.
+    dtype: The type of the output: `float16`, `float32`, `float64`, `int32` or
+      `int64`.
     seed: A Python integer. Used to create a random seed for the distributions.
       See
       @{tf.set_random_seed}
@@ -446,7 +451,7 @@ def random_poisson(lam, shape, dtype=dtypes.float32, seed=None, name=None):
       values of type `dtype`.
   """
   with ops.name_scope(name, "random_poisson", [lam, shape]):
-    lam = ops.convert_to_tensor(lam, name="lam", dtype=dtype)
     shape = ops.convert_to_tensor(shape, name="shape", dtype=dtypes.int32)
     seed1, seed2 = random_seed.get_seed(seed)
-    return gen_random_ops._random_poisson(shape, lam, seed=seed1, seed2=seed2)
+    return gen_random_ops.random_poisson_v2(
+        shape, lam, dtype=dtype, seed=seed1, seed2=seed2)

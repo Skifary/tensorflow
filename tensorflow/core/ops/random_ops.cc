@@ -23,17 +23,6 @@ using shape_inference::DimensionHandle;
 using shape_inference::InferenceContext;
 using shape_inference::ShapeHandle;
 
-namespace {
-
-Status RandomShape(InferenceContext* c) {
-  ShapeHandle out;
-  TF_RETURN_IF_ERROR(c->MakeShapeFromShapeTensor(0, &out));
-  c->set_output(0, out);
-  return Status::OK();
-}
-
-}  // namepsace
-
 REGISTER_OP("RandomUniform")
     .Input("shape: T")
     .SetIsStateful()
@@ -42,7 +31,7 @@ REGISTER_OP("RandomUniform")
     .Attr("seed2: int = 0")
     .Attr("dtype: {half,float,double}")
     .Attr("T: {int32, int64}")
-    .SetShapeFn(RandomShape)
+    .SetShapeFn(shape_inference::RandomShape)
     .Doc(R"doc(
 Outputs random values from a uniform distribution.
 
@@ -69,7 +58,7 @@ REGISTER_OP("RandomUniformInt")
     .Attr("seed2: int = 0")
     .Attr("Tout: {int32, int64}")
     .Attr("T: {int32, int64}")
-    .SetShapeFn(RandomShape)
+    .SetShapeFn(shape_inference::RandomShape)
     .Doc(R"doc(
 Outputs random integers from a uniform distribution.
 
@@ -100,7 +89,7 @@ REGISTER_OP("RandomStandardNormal")
     .Attr("seed2: int = 0")
     .Attr("dtype: {half,float,double}")
     .Attr("T: {int32, int64}")
-    .SetShapeFn(RandomShape)
+    .SetShapeFn(shape_inference::RandomShape)
     .Doc(R"doc(
 Outputs random values from a normal distribution.
 
@@ -128,7 +117,7 @@ REGISTER_OP("ParameterizedTruncatedNormal")
     .Attr("seed2: int = 0")
     .Attr("dtype: {half,float,double}")
     .Attr("T: {int32, int64}")
-    .SetShapeFn(RandomShape)
+    .SetShapeFn(shape_inference::RandomShape)
     .Doc(R"doc(
 Outputs random values from a normal distribution. The parameters may each be a
 scalar which applies to the entire output, or a vector of length shape[0] which
@@ -158,7 +147,7 @@ REGISTER_OP("TruncatedNormal")
     .Attr("seed2: int = 0")
     .Attr("dtype: {half,float,double}")
     .Attr("T: {int32, int64}")
-    .SetShapeFn(RandomShape)
+    .SetShapeFn(shape_inference::RandomShape)
     .Doc(R"doc(
 Outputs random values from a truncated normal distribution.
 
@@ -192,7 +181,7 @@ Randomly shuffles a tensor along its first dimension.
   to one and only one `output[i]`. For example, a mapping that might occur for a
   3x2 tensor is:
 
-```prettyprint
+```
 [[1, 2],       [[5, 6],
  [3, 4],  ==>   [1, 2],
  [5, 6]]        [3, 4]]
@@ -292,6 +281,28 @@ REGISTER_OP("RandomPoisson")
       c->set_output(0, out);
       return Status::OK();
     })
+    .Deprecated(25, "Replaced by RandomPoissonV2")
+    .Doc(R"doc(
+Use RandomPoissonV2 instead.
+)doc");
+
+REGISTER_OP("RandomPoissonV2")
+    .SetIsStateful()
+    .Input("shape: S")
+    .Input("rate: R")
+    .Output("output: dtype")
+    .Attr("seed: int = 0")
+    .Attr("seed2: int = 0")
+    .Attr("S: {int32, int64}")
+    .Attr("R: {half, float, double, int32, int64} = DT_DOUBLE")
+    .Attr("dtype: {half, float, double, int32, int64} = DT_INT64")
+    .SetShapeFn([](InferenceContext* c) {
+      ShapeHandle out;
+      TF_RETURN_IF_ERROR(c->MakeShapeFromShapeTensor(0, &out));
+      TF_RETURN_IF_ERROR(c->Concatenate(out, c->input(1), &out));
+      c->set_output(0, out);
+      return Status::OK();
+    })
     .Doc(R"doc(
 Outputs random values from the Poisson distribution(s) described by rate.
 
@@ -316,8 +327,7 @@ seed2: A second seed to avoid seed collision.
 
 output: A tensor with shape `shape + shape(rate)`. Each slice
   `[:, ..., :, i0, i1, ...iN]` contains the samples drawn for
-  `rate[i0, i1, ...iN]`. The dtype of the output matches the dtype of
-  rate.
+  `rate[i0, i1, ...iN]`.
 )doc");
 
 }  // namespace tensorflow
